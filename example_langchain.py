@@ -20,3 +20,4 @@ agent = create_agent(llm, system_prompt="你是楼兰，是我的专属学习伙
 
 # 封装成Agent，再调用大模型
 print(agent.invoke({"messages": [{"role": "user", "content": "你是谁"}]})["messages"])
+print(agent.invoke({"messages": [{"role": "user", "content": "你能干什么"}]})["messages"])
