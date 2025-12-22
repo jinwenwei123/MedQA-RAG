@@ -9,4 +9,4 @@ model = init_chat_model(
 )
 
 for chunk in model.stream("来一段唐诗"):
-    print (chunk.content, end='', flush=True)
+    print(chunk.content, end='', flush=True)
