@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
-
 load_dotenv()
 
 model = init_chat_model(
@@ -13,4 +12,4 @@ model = init_chat_model(
 )
 
 for chunk in model.stream("来一段毛主席诗词"):
-    print (chunk.content, end='', flush=True)
+    print(chunk.content, end='', flush=True)
