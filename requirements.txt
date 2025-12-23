@@ -86,6 +86,7 @@ orjson==3.11.5
 ormsgpack==1.12.1
 overrides==7.7.0
 packaging==25.0
+pandas==2.3.3
 posthog==5.4.0
 propcache==0.4.1
 protobuf==6.33.2
@@ -104,6 +105,7 @@ pyproject_hooks==1.2.0
 pyreadline3==3.5.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
+pytz==2025.2
 PyYAML==6.0.3
 referencing==0.37.0
 regex==2025.11.3
