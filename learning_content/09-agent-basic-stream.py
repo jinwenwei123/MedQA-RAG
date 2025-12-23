@@ -19,7 +19,7 @@ agent = create_agent(
     tools=[get_weather],
 )
 
-messages_dict = {"messages": [{"role": "user", "content": "What is the weather like in SF"}]}
+messages_list = [{"role": "user", "content": "What is the weather like in SF"}]
 # for event in agent.stream(messages_dict, stream_mode="values"):  # 消息
 #     messages = event["messages"]
 #     print(f"历史消息：{len(messages)}条")
@@ -27,8 +27,8 @@ messages_dict = {"messages": [{"role": "user", "content": "What is the weather l
 #     #     message.pretty_print()
 #     messages[-1].pretty_print()
 
-for chunk in agent.stream(messages_dict, stream_mode="messages"):  # token
-    print(chunk[0].content,end='')
+for chunk in agent.stream({"messages": messages_list}, stream_mode="messages"):  # token
+    print(chunk[0].content, end='')
 """
 (
 AIMessageChunk(content='I', additional_kwargs={}, response_metadata={'model_provider': 'deepseek'}, id='lc_run--019b4a36-b84a-7103-9c80-daa54cc15b91'), 
@@ -45,10 +45,8 @@ AIMessageChunk(content='I', additional_kwargs={}, response_metadata={'model_prov
     'ls_temperature': None}
 )   
 """
-    # messages = chunk["messages"]
-    # print(f"历史消息：{len(messages)}条")
-    # # for message in messages:
-    # #     message.pretty_print()
-    # messages[-1].pretty_print()
-
-
+# messages = chunk["messages"]
+# print(f"历史消息：{len(messages)}条")
+# # for message in messages:
+# #     message.pretty_print()
+# messages[-1].pretty_print()
