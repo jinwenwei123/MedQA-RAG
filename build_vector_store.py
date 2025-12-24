@@ -10,7 +10,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 import chromadb
 from chromadb.config import Settings
-from .config import config
+from config import config
 
 
 def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_to_content, split_type="train"):
