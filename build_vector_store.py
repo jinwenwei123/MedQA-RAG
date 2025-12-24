@@ -90,8 +90,6 @@ def add_documents_to_vectorstore(chunked_documents, vector_store, batch_size=100
 
         print(f"已添加 {min(i + batch_size, total_docs)}/{total_docs} 个文档")
 
-    # 持久化保存
-    vector_store.persist()
     print("向量库构建完成并已持久化保存")
 
 
@@ -124,9 +122,7 @@ def main():
     # 读取数据
     questions_df = pd.read_csv(config["question_dict"])
     answers_df = pd.read_csv(config["answer_dict"])
-    train_candidates = pd.read_csv(config["train_dict"])
-    dev_candidates = pd.read_csv(config["dev_dict"])
-    test_candidates = pd.read_csv(config["test_dict"])
+    train_candidates = pd.read_csv(config["train_dict"]).head(5000)
 
     # 创建问题ID到内容的映射
     question_id_to_content = dict(zip(questions_df['question_id'], questions_df['content']))
