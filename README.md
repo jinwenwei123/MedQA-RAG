@@ -182,5 +182,4 @@ streamlit run app.py
 * 向量库：Chroma
 * 推理与嵌入：Ollama 本地模型服务
 
-如果你想把 README 再“作业化”一点（例如加“系统架构图、RAG 流程图、评估结果表格、Demo 截图位”），我也可以按你课程要求帮你补齐对应章节。
 
