@@ -134,7 +134,6 @@ def main():
 
     # 创建答案ID到内容的映射
     answer_id_to_content = dict(zip(answers_df['ans_id'], answers_df['content']))
-    answer_id_to_question_id = dict(zip(answers_df['ans_id'], answers_df['question_id']))
 
     # 构建知识文档
     print("构建知识文档...")
@@ -148,7 +147,7 @@ def main():
     # 针对中文医疗文本优化的分块器
     chinese_text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,  # 适中的块大小
-        chunk_overlap=50,  # 重叠确保上下文连贯
+        chunk_overlap=100,  # 重叠确保上下文连贯
         separators=["\n\n", "\n", "。", "；", "，", " ", ""],  # 中文标点优先
         length_function=len,
         keep_separator=True
