@@ -1,7 +1,7 @@
 import os
 import json
 import pandas as pd
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
@@ -72,7 +72,6 @@ def safe_json_loads(s: str) -> Dict[str, Any]:
     try:
         return json.loads(s)
     except Exception:
-        # 兜底：把原文本塞进 answer
         return {"answer": s}
 
 
@@ -137,17 +136,61 @@ def build_judge_chain(model):
 
 
 # =========================
-# 5) 只保留 accuracy / hallucination rate
+# 5) 引用F1（基于检索到的 answer_id 集合作为引用来源）
+# =========================
+
+def extract_answer_ids_from_docs(docs: List[Document]) -> Set[int]:
+    """
+    从检索到的 docs 中提取 metadata.answer_id，去重后作为“引用来源集合”。
+    """
+    out: Set[int] = set()
+    for d in docs:
+        meta = d.metadata or {}
+        aid = meta.get("answer_id", None)
+        if aid is None:
+            continue
+        try:
+            out.add(int(aid))
+        except Exception:
+            pass
+    return out
+
+
+def citation_prf(pred_sources: Set[int], gold_ans_id: int) -> tuple[float, float, float]:
+    """
+    gold 只有一个：{gold_ans_id}
+    precision = |pred ∩ gold| / |pred|
+    recall    = |pred ∩ gold| / |gold|   (gold 大小为1)
+    f1        = 2PR/(P+R)
+    """
+    gold = {int(gold_ans_id)}
+    pred = set(int(x) for x in pred_sources) if pred_sources else set()
+
+    tp = len(pred & gold)
+    fp = len(pred - gold)
+    fn = len(gold - pred)
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+    return precision, recall, f1
+
+
+# =========================
+# 6) 指标结构
 # =========================
 
 @dataclass
 class EvalResult:
     correct: int
     hallucination: int
+    cite_p: float
+    cite_r: float
+    cite_f1: float
 
 
 # =========================
-# 6) 主流程：baseline vs rag（进度条）
+# 7) 主流程：baseline vs rag（进度条）
 # =========================
 
 def run_eval(
@@ -192,6 +235,10 @@ def run_eval(
             pred_obj = safe_json_loads(resp.content if hasattr(resp, "content") else str(resp))
             pred_answer = str(pred_obj.get("answer", "")).strip()
             evidence_for_judge = gold_answer
+
+            # Baseline 没有引用来源
+            pred_sources = set()
+
         else:
             docs = vector_store.similarity_search(question, k=top_k)
             context = docs_to_context(docs)
@@ -200,6 +247,12 @@ def run_eval(
             pred_obj = safe_json_loads(resp.content if hasattr(resp, "content") else str(resp))
             pred_answer = str(pred_obj.get("answer", "")).strip()
             evidence_for_judge = context
+
+            # ✅ 引用来源：用检索到的 docs 的 answer_id 集合表示
+            pred_sources = extract_answer_ids_from_docs(docs)
+
+        # -------- 引用PRF（有效：RAG命中 gold 时 recall=1，否则0）--------
+        cite_p, cite_r, cite_f1 = citation_prf(pred_sources, gold_aid)
 
         # -------- Judge：correct / hallucination --------
         j = judge_chain.invoke({
@@ -212,24 +265,37 @@ def run_eval(
         correct = int(j_obj.get("correct", 0))
         hallucination = int(j_obj.get("hallucination", 0))
 
-        results.append(EvalResult(correct=correct, hallucination=hallucination))
+        results.append(EvalResult(
+            correct=correct,
+            hallucination=hallucination,
+            cite_p=cite_p,
+            cite_r=cite_r,
+            cite_f1=cite_f1
+        ))
 
         # 进度条显示当前均值
         if len(results) % 10 == 0:
             acc_now = sum(r.correct for r in results) / len(results)
             hallu_now = sum(r.hallucination for r in results) / len(results)
-            iterator.set_postfix(acc=f"{acc_now:.3f}", hallu=f"{hallu_now:.3f}")
+            citef1_now = sum(r.cite_f1 for r in results) / len(results)
+            iterator.set_postfix(acc=f"{acc_now:.3f}", hallu=f"{hallu_now:.3f}", citeF1=f"{citef1_now:.3f}")
 
     if not results:
         return {"n": 0}
 
     acc = sum(r.correct for r in results) / len(results)
     hallu = sum(r.hallucination for r in results) / len(results)
+    cite_p = sum(r.cite_p for r in results) / len(results)
+    cite_r = sum(r.cite_r for r in results) / len(results)
+    cite_f1 = sum(r.cite_f1 for r in results) / len(results)
 
     return {
         "n": len(results),
         "accuracy": acc,
         "hallucination_rate": hallu,
+        "citation_precision": cite_p,
+        "citation_recall": cite_r,
+        "citation_f1": cite_f1,
     }
 
 
@@ -241,13 +307,6 @@ def main():
         base_url="http://localhost:11434",
         temperature=0.1,
     )
-    # 也可以用 deepseek API（保留）
-    # model = init_chat_model(
-    #     model="deepseek:deepseek-chat",
-    #     base_url="https://api.deepseek.com",
-    #     api_key=os.getenv("DEEPSEEK_API_KEY"),
-    #     temperature=0.1
-    # )
 
     question_csv = config["question_dict"]
     answer_csv = config["answer_dict"]
