@@ -1,6 +1,7 @@
 import json
 import pickle
 import os
+import shutil
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Tuple
@@ -10,6 +11,8 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 import chromadb
 from chromadb.config import Settings
+from ollama import embeddings
+
 from config import config
 
 
@@ -94,7 +97,7 @@ def chunk_documents(documents, splitter):
 
 
 # 4. 批量添加文档到向量库
-def add_documents_to_vectorstore(chunked_documents, vector_store, batch_size=100):
+def add_documents_to_vectorstore(chunked_documents, embedding, vector_store, batch_size=100):
     """批量添加文档到向量库"""
     total_docs = len(chunked_documents)
 
@@ -109,7 +112,8 @@ def add_documents_to_vectorstore(chunked_documents, vector_store, batch_size=100
         vector_store.add_texts(
             texts=texts,
             metadatas=metadatas,
-            ids=[f"doc_{i + j}" for j in range(len(batch))]
+            ids=[f"doc_{i + j}" for j in range(len(batch))],
+            embeddings=embedding,
         )
 
         print(f"已添加 {min(i + batch_size, total_docs)}/{total_docs} 个文档")
@@ -243,31 +247,27 @@ def main():
 
     # 构建向量库
     print("构建向量库...")
+
+    if os.path.exists("./chroma_rag_db"):
+        shutil.rmtree("./chroma_rag_db")
+        print("已清理旧向量库目录")
+
     # 优化嵌入模型配置
     embedding = OllamaEmbeddings(
         model="qwen3-embedding:8b",
         base_url="http://localhost:11434",
     )
 
-    # 创建Chroma集合，使用持久化客户端确保数据持久保存
-    chroma_client = chromadb.PersistentClient(
-        path="./chroma_rag_db",
-        settings=Settings(
-            anonymized_telemetry=False,
-            allow_reset=True
-        )
-    )
-
     # 创建向量存储
     vector_store = Chroma(
-        client=chroma_client,
         collection_name="medical_rag_collection",
         embedding_function=embedding,
         persist_directory="./chroma_rag_db"
     )
+    # 在创建新向量库前，可以删除旧目录
 
     # 执行向量库构建
-    add_documents_to_vectorstore(chunked_docs, vector_store)
+    add_documents_to_vectorstore(chunked_docs, embedding, vector_store)
 
     # 验证向量库
     print(f"\n向量库统计信息：")
