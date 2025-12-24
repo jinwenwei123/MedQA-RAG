@@ -5,7 +5,6 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
-import hashlib
 
 from config import config
 
@@ -86,7 +85,7 @@ def add_documents_to_vectorstore(chunked_documents, vector_store, batch_size=100
         vector_store.add_texts(
             texts=texts,
             metadatas=metadatas,
-            ids=[f"doc_{i + j}_{hashlib.md5(doc.page_content.encode()).hexdigest()[:8]}" for j in range(len(batch))],
+            ids=[f"doc_{i + j}" for j in range(len(batch))],
         )
 
         print(f"已添加 {min(i + batch_size, total_docs)}/{total_docs} 个文档")
@@ -123,20 +122,12 @@ def main():
     # 读取数据
     questions_df = pd.read_csv(config["question_dict"])
     answers_df = pd.read_csv(config["answer_dict"])
-    train_candidates = pd.read_csv(config["train_dict"]).head(5000)
+    train_candidates = pd.read_csv(config["train_dict"])
 
     # 重要：过滤掉重复的(question_id, pos_ans_id)对
     print(f"原始训练候选对数量: {len(train_candidates)}")
     train_candidates = train_candidates.drop_duplicates(subset=['question_id', 'pos_ans_id'])
     print(f"去重后训练候选对数量: {len(train_candidates)}")
-
-    # 显示一些重复的示例（如果存在）
-    duplicate_counts = train_candidates.duplicated(subset=['question_id', 'pos_ans_id'], keep=False)
-    if duplicate_counts.any():
-        print(f"发现 {duplicate_counts.sum()} 个重复的(question_id, pos_ans_id)对")
-        duplicates = train_candidates[train_candidates.duplicated(subset=['question_id', 'pos_ans_id'], keep=False)]
-        print("重复对示例:")
-        print(duplicates.head(10))
 
     # 创建问题ID到内容的映射
     question_id_to_content = dict(zip(questions_df['question_id'], questions_df['content']))
@@ -152,30 +143,12 @@ def main():
 
     print(f"总文档数量：{len(train_docs)}")
 
-    # 添加额外检查：确保文档内容不重复
-    seen_contents = set()
-    unique_docs = []
-    duplicate_doc_count = 0
-
-    for doc in train_docs:
-        content_hash = hashlib.md5(doc.page_content.encode()).hexdigest()
-        if content_hash not in seen_contents:
-            seen_contents.add(content_hash)
-            unique_docs.append(doc)
-        else:
-            duplicate_doc_count += 1
-
-    if duplicate_doc_count > 0:
-        print(f"发现 {duplicate_doc_count} 个重复的文档内容，已过滤")
-        train_docs = unique_docs
-        print(f"去重后文档数量：{len(train_docs)}")
-
     # 文本分块
     print("文本分块处理...")
     # 针对中文医疗文本优化的分块器
     chinese_text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,  # 适中的块大小
-        chunk_overlap=100,  # 重叠确保上下文连贯
+        chunk_overlap=50,  # 重叠确保上下文连贯
         separators=["\n\n", "\n", "。", "；", "，", " ", ""],  # 中文标点优先
         length_function=len,
         keep_separator=True
