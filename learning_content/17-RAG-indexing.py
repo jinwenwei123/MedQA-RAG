@@ -47,7 +47,7 @@ print(all_splits[0])
 from langchain_ollama import OllamaEmbeddings
 
 embedding = OllamaEmbeddings(
-    model="nomic-embed-text:latest",
+    model="qwen3-embedding:8b",
     base_url="http://localhost:11434"
 )
 
