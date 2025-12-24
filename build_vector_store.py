@@ -174,11 +174,11 @@ def main():
     # 加载和预处理数据
     print("加载和预处理数据...")
     # 读取数据
-    questions_df = pd.read_csv(r'dataset/questions.csv')
-    answers_df = pd.read_csv(r'dataset/answer.csv')
-    train_candidates = pd.read_csv(r'dataset/train_candidates.txt')
-    dev_candidates = pd.read_csv(r'dataset/dev_candidates.txt')
-    test_candidates = pd.read_csv(r'dataset/test_candidates.txt')
+    questions_df = pd.read_csv(r'dataset/cMedQA2/questions.csv')
+    answers_df = pd.read_csv(r'dataset/cMedQA2/answer.csv')
+    train_candidates = pd.read_csv(r'dataset/cMedQA2/train_candidates.txt')
+    dev_candidates = pd.read_csv(r'dataset/cMedQA2/dev_candidates.txt')
+    test_candidates = pd.read_csv(r'dataset/cMedQA2/test_candidates.txt')
 
     # 创建问题ID到内容的映射
     question_id_to_content = dict(zip(questions_df['question_id'], questions_df['content']))
