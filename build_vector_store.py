@@ -1,41 +1,21 @@
-import json
-import pickle
 import os
 import shutil
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Tuple
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
-import chromadb
-from chromadb.config import Settings
-from ollama import embeddings
 
 from config import config
 
 
 def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_to_content, split_type="train"):
-    """构建知识文档 (兼容train/test/dev三种格式)"""
+    """构建知识文档"""
     documents = []
-
-    # 判断数据格式
-    if 'pos_ans_id' in candidates_df.columns:
-        # 处理训练集格式: question_id, pos_ans_id, neg_ans_id
-        ans_id_col = 'pos_ans_id'
-    elif 'ans_id' in candidates_df.columns and 'label' in candidates_df.columns:
-        # 处理测试集/开发集格式: question_id, ans_id, cnt, label
-        # 只选择label==1的行作为正面答案
-        candidates_df = candidates_df[candidates_df['label'] == 1]
-        ans_id_col = 'ans_id'
-    else:
-        print(f"警告：{split_type}数据集的格式无法识别，已跳过。")
-        return documents
 
     for _, row in candidates_df.iterrows():
         question_id = row['question_id']
-        pos_ans_id = row[ans_id_col]  # 通用列名
+        pos_ans_id = row['pos_ans_id']
 
         # 获取问题和答案内容
         question = question_id_to_content.get(question_id, "")
@@ -60,14 +40,7 @@ def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_t
                 metadata=metadata
             )
             documents.append(doc)
-        else:
-            # 可选：记录缺失内容的问题，便于调试
-            if not question:
-                print(f"警告：问题ID {question_id} 在question.csv中未找到")
-            if not pos_answer:
-                print(f"警告：答案ID {pos_ans_id} 在answer.csv中未找到")
 
-    print(f"  {split_type}集：从 {len(candidates_df)} 个候选中生成了 {len(documents)} 个有效文档")
     return documents
 
 
@@ -97,7 +70,7 @@ def chunk_documents(documents, splitter):
 
 
 # 4. 批量添加文档到向量库
-def add_documents_to_vectorstore(chunked_documents, embedding, vector_store, batch_size=100):
+def add_documents_to_vectorstore(chunked_documents, vector_store, batch_size=100):
     """批量添加文档到向量库"""
     total_docs = len(chunked_documents)
 
@@ -113,7 +86,6 @@ def add_documents_to_vectorstore(chunked_documents, embedding, vector_store, bat
             texts=texts,
             metadatas=metadatas,
             ids=[f"doc_{i + j}" for j in range(len(batch))],
-            embeddings=embedding,
         )
 
         print(f"已添加 {min(i + batch_size, total_docs)}/{total_docs} 个文档")
@@ -143,55 +115,6 @@ def test_retrieval(query, vector_store, k=3):
     return results
 
 
-# 保存数据划分信息
-def save_data_splits(train_docs, dev_docs, test_docs, question_id_to_content, answer_id_to_content):
-    """保存数据划分信息，用于后续评估"""
-    data_splits = {
-        "train_qa_pairs": [
-            {
-                "question_id": doc.metadata["question_id"],
-                "answer_id": doc.metadata["answer_id"],
-                "question": question_id_to_content[doc.metadata["question_id"]],
-                "answer": answer_id_to_content[doc.metadata["answer_id"]]
-            }
-            for doc in train_docs
-        ],
-        "dev_qa_pairs": [
-            {
-                "question_id": doc.metadata["question_id"],
-                "answer_id": doc.metadata["answer_id"],
-                "question": question_id_to_content[doc.metadata["question_id"]],
-                "answer": answer_id_to_content[doc.metadata["answer_id"]]
-            }
-            for doc in dev_docs
-        ],
-        "test_qa_pairs": [
-            {
-                "question_id": doc.metadata["question_id"],
-                "answer_id": doc.metadata["answer_id"],
-                "question": question_id_to_content[doc.metadata["question_id"]],
-                "answer": answer_id_to_content[doc.metadata["answer_id"]]
-            }
-            for doc in test_docs
-        ]
-    }
-
-    # 创建目录
-    os.makedirs("./data_splits", exist_ok=True)
-
-    # 保存为JSON和pickle格式
-    with open("./data_splits/data_splits.json", "w", encoding="utf-8") as f:
-        json.dump(data_splits, f, ensure_ascii=False, indent=2)
-
-    with open("./data_splits/data_splits.pkl", "wb") as f:
-        pickle.dump(data_splits, f)
-
-    print(f"数据划分已保存：")
-    print(f"- 训练集QA对：{len(data_splits['train_qa_pairs'])}")
-    print(f"- 开发集QA对：{len(data_splits['dev_qa_pairs'])}")
-    print(f"- 测试集QA对：{len(data_splits['test_qa_pairs'])}")
-
-
 def main():
     """主函数"""
     print("开始构建医疗问答向量库...")
@@ -215,14 +138,9 @@ def main():
     # 构建知识文档
     print("构建知识文档...")
     # 构建所有文档
-    train_docs = build_knowledge_documents(train_candidates, question_id_to_content, answer_id_to_content, "train")
-    dev_docs = build_knowledge_documents(dev_candidates, question_id_to_content, answer_id_to_content, "dev")
-    test_docs = build_knowledge_documents(test_candidates, question_id_to_content, answer_id_to_content, "test")
+    train_docs = build_knowledge_documents(train_candidates, question_id_to_content, answer_id_to_content)
 
-    # 合并所有文档（用于向量库构建）
-    all_docs = train_docs + dev_docs + test_docs
-    print(f"总文档数量：{len(all_docs)}")
-    print(f"训练集：{len(train_docs)}，开发集：{len(dev_docs)}，测试集：{len(test_docs)}")
+    print(f"总文档数量：{len(train_docs)}")
 
     # 文本分块
     print("文本分块处理...")
@@ -235,7 +153,7 @@ def main():
         keep_separator=True
     )
     # 对文档进行分块
-    chunked_docs = chunk_documents(all_docs, chinese_text_splitter)
+    chunked_docs = chunk_documents(train_docs, chinese_text_splitter)
     print(f"分块后文档数量：{len(chunked_docs)}")
 
     # 查看分块示例
@@ -254,7 +172,7 @@ def main():
 
     # 优化嵌入模型配置
     embedding = OllamaEmbeddings(
-        model="qwen3-embedding:8b",
+        model="qwen3-embedding:4b",
         base_url="http://localhost:11434",
     )
 
@@ -267,7 +185,7 @@ def main():
     # 在创建新向量库前，可以删除旧目录
 
     # 执行向量库构建
-    add_documents_to_vectorstore(chunked_docs, embedding, vector_store)
+    add_documents_to_vectorstore(chunked_docs, vector_store)
 
     # 验证向量库
     print(f"\n向量库统计信息：")
@@ -284,19 +202,9 @@ def main():
     for query in test_queries:
         test_retrieval(query, vector_store)
 
-    # 创建检索器实例供后续使用
-    retriever = vector_store.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 5}  # 默认检索5个相关文档
-    )
-
-    print("保存数据划分...")
-    save_data_splits(train_docs, dev_docs, test_docs, question_id_to_content, answer_id_to_content)
-
     print("\n✅ 向量库构建完成！")
     print(f"向量库位置：./chroma_rag_db")
     print(f"文档总数：{vector_store._collection.count()}")
-    print(f"数据划分已保存至：./data_splits/")
 
 
 if __name__ == '__main__':
