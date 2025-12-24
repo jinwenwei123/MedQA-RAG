@@ -10,15 +10,29 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 import chromadb
 from chromadb.config import Settings
+from .config import config
 
 
 def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_to_content, split_type="train"):
-    """构建知识文档"""
+    """构建知识文档 (兼容train/test/dev三种格式)"""
     documents = []
+
+    # 判断数据格式
+    if 'pos_ans_id' in candidates_df.columns:
+        # 处理训练集格式: question_id, pos_ans_id, neg_ans_id
+        ans_id_col = 'pos_ans_id'
+    elif 'ans_id' in candidates_df.columns and 'label' in candidates_df.columns:
+        # 处理测试集/开发集格式: question_id, ans_id, cnt, label
+        # 只选择label==1的行作为正面答案
+        candidates_df = candidates_df[candidates_df['label'] == 1]
+        ans_id_col = 'ans_id'
+    else:
+        print(f"警告：{split_type}数据集的格式无法识别，已跳过。")
+        return documents
 
     for _, row in candidates_df.iterrows():
         question_id = row['question_id']
-        pos_ans_id = row['pos_ans_id']
+        pos_ans_id = row[ans_id_col]  # 通用列名
 
         # 获取问题和答案内容
         question = question_id_to_content.get(question_id, "")
@@ -43,7 +57,14 @@ def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_t
                 metadata=metadata
             )
             documents.append(doc)
+        else:
+            # 可选：记录缺失内容的问题，便于调试
+            if not question:
+                print(f"警告：问题ID {question_id} 在question.csv中未找到")
+            if not pos_answer:
+                print(f"警告：答案ID {pos_ans_id} 在answer.csv中未找到")
 
+    print(f"  {split_type}集：从 {len(candidates_df)} 个候选中生成了 {len(documents)} 个有效文档")
     return documents
 
 
@@ -174,11 +195,11 @@ def main():
     # 加载和预处理数据
     print("加载和预处理数据...")
     # 读取数据
-    questions_df = pd.read_csv(r'F:\pythonProject\MedQA-RAG\dataset\cMedQA2\question.csv')
-    answers_df = pd.read_csv(r'F:\pythonProject\MedQA-RAG\dataset\cMedQA2\answer.csv')
-    train_candidates = pd.read_csv(r'F:\pythonProject\MedQA-RAG\dataset\cMedQA2\train_candidates.txt')
-    dev_candidates = pd.read_csv(r'F:\pythonProject\MedQA-RAG\dataset\cMedQA2\dev_candidates.txt')
-    test_candidates = pd.read_csv(r'F:\pythonProject\MedQA-RAG\dataset\cMedQA2\test_candidates.txt')
+    questions_df = pd.read_csv(config["question_dict"])
+    answers_df = pd.read_csv(config["answer_dict"])
+    train_candidates = pd.read_csv(config["train_dict"])
+    dev_candidates = pd.read_csv(config["dev_dict"])
+    test_candidates = pd.read_csv(config["test_dict"])
 
     # 创建问题ID到内容的映射
     question_id_to_content = dict(zip(questions_df['question_id'], questions_df['content']))
