@@ -10,7 +10,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 import chromadb
 from chromadb.config import Settings
-from .config import config
+from config import config
 
 
 def build_knowledge_documents(candidates_df, question_id_to_content, answer_id_to_content, split_type="train"):
@@ -247,8 +247,6 @@ def main():
     embedding = OllamaEmbeddings(
         model="qwen3-embedding:8b",
         base_url="http://localhost:11434",
-        request_timeout=120,
-        batch_size=32
     )
 
     # 创建Chroma集合，使用持久化客户端确保数据持久保存
