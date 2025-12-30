@@ -191,27 +191,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    """
-    
-• 已新增一个嵌入模型微调脚本，专注于 RAG 检索侧（不微调大模型），支持可选 LoRA。文件在 finetune_embedding.py。
-                                                                                                                                                                                                                        
-  用法示例（SFT 风格的对比学习微调）：                                                                                                                                                                                  
-                                                                                                                                                                                                                        
-  python finetune_embedding.py --data_dir dataset/cMedQA2 --output_dir models/medqa-embedding                                                                                                                           
-                                                                                                                                                                                                                        
-  可选 LoRA（若要极小参数微调）：                                                                                                                                                                                       
-                                                                                                                                                                                                                        
-  python finetune_embedding.py --data_dir dataset/cMedQA2 --output_dir models/medqa-embedding --use_lora --lora_target query,key,value                                                                                  
-                                                                                                                                                                                                                        
-  依赖说明（当前 requirements.txt 未包含）：                                                                                                                                                                            
-                                                                                                                                                                                                                        
-  - 必需：sentence-transformers, torch                                                                                                                                                                                  
-  - LoRA 选项：peft                                                                                                                                                                                                     
-                                                                                                                                                                                                                        
-  如果你要把微调后的 embedding 接入现有流程，可在 build_vector_store.py 里改成 HuggingFaceEmbeddings（保持 Ollama LLM 不变）。例如：                                                                                    
-                                                                                                                                                                                                                        
-  from langchain_huggingface import HuggingFaceEmbeddings                                                                                                                                                               
-  embedding = HuggingFaceEmbeddings(model_name="models/medqa-embedding")                                                                                                                                                
-                                                                                                                                                                                                                        
-  需要我直接把 build_vector_store.py 改成支持本地 HF embedding（保留 Ollama 作为可选项）的话，告诉我你想保留的默认模型与路径。   
-    """
