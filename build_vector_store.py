@@ -1,9 +1,11 @@
+import argparse
 import os
 import shutil
 import pandas as pd
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 from config import config
@@ -113,9 +115,46 @@ def test_retrieval(query, vector_store, k=3):
     return results
 
 
+def build_embeddings(args):
+    if args.embedding_backend == "hf":
+        return HuggingFaceEmbeddings(model_name=args.hf_model_path)
+
+    return OllamaEmbeddings(
+        model=args.ollama_model,
+        base_url=args.ollama_base_url,
+    )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Build Chroma vector store for MedQA-RAG.")
+    parser.add_argument(
+        "--embedding-backend",
+        choices=["ollama", "hf"],
+        default="ollama",
+        help="Embedding backend to use (ollama or hf).",
+    )
+    parser.add_argument(
+        "--ollama-model",
+        default="qwen3-embedding:4b",
+        help="Ollama embedding model name.",
+    )
+    parser.add_argument(
+        "--ollama-base-url",
+        default="http://localhost:11434",
+        help="Ollama base URL.",
+    )
+    parser.add_argument(
+        "--hf-model-path",
+        default="models/medqa-embedding",
+        help="Local path or HF model id for Hugging Face embeddings.",
+    )
+    return parser.parse_args()
+
+
 def main():
     """主函数"""
     print("开始构建医疗问答向量库...")
+    args = parse_args()
 
     # 加载和预处理数据
     print("加载和预处理数据...")
@@ -171,10 +210,7 @@ def main():
         print("已清理旧向量库目录")
 
     # 优化嵌入模型配置
-    embedding = OllamaEmbeddings(
-        model="qwen3-embedding:4b",
-        base_url="http://localhost:11434",
-    )
+    embedding = build_embeddings(args)
 
     # 创建向量存储
     vector_store = Chroma(
@@ -208,3 +244,29 @@ def main():
 
 if __name__ == '__main__':
     main()
+"""
+
+• 已把 build_vector_store.py 改成可选 Ollama 或本地 HF embedding，并用参数控制加载哪个模型。
+                                                                                                                                                                                                                        
+  改动位置                                                                                                                                                                                                              
+                                                                                                                                                                                                                        
+  - build_vector_store.py：新增参数解析与 build_embeddings，用 --embedding-backend 选择 ollama 或 hf。                                                                                                                  
+                                                                                                                                                                                                                        
+  用法示例                                                                                                                                                                                                              
+                                                                                                                                                                                                                        
+  # 继续用 Ollama embedding（默认）                                                                                                                                                                                     
+  python build_vector_store.py --embedding-backend ollama --ollama-model qwen3-embedding:4b --ollama-base-url http://localhost:11434                                                                                    
+                                                                                                                                                                                                                        
+  # 使用本地/远程 HF embedding                                                                                                                                                                                          
+  python build_vector_store.py --embedding-backend hf --hf-model-path models/medqa-embedding                                                                                                                            
+                                                                                                                                                                                                                        
+  依赖提示                                                                                                                                                                                                              
+                                                                                                                                                                                                                        
+  - HF 路线需要 langchain-huggingface（以及 sentence-transformers，你之前微调用到）                                                                                                                                     
+  - 如果想把这些补到 requirements.txt，告诉我我来加
+                                                                                                                                                                                                                        
+  下一步建议                                                                                                                                                                                                            
+                                                                                                                                                                                                                        
+  1. 用 --embedding-backend hf 跑一次构库，确认向量库生成正常                                                                                                                                                           
+  2. 如需我把默认模型/参数写进 config.py 或 README，我可以补上     
+"""
