@@ -244,29 +244,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-"""
-
-• 已把 build_vector_store.py 改成可选 Ollama 或本地 HF embedding，并用参数控制加载哪个模型。
-                                                                                                                                                                                                                        
-  改动位置                                                                                                                                                                                                              
-                                                                                                                                                                                                                        
-  - build_vector_store.py：新增参数解析与 build_embeddings，用 --embedding-backend 选择 ollama 或 hf。                                                                                                                  
-                                                                                                                                                                                                                        
-  用法示例                                                                                                                                                                                                              
-                                                                                                                                                                                                                        
-  # 继续用 Ollama embedding（默认）                                                                                                                                                                                     
-  python build_vector_store.py --embedding-backend ollama --ollama-model qwen3-embedding:4b --ollama-base-url http://localhost:11434                                                                                    
-                                                                                                                                                                                                                        
-  # 使用本地/远程 HF embedding                                                                                                                                                                                          
-  python build_vector_store.py --embedding-backend hf --hf-model-path models/medqa-embedding                                                                                                                            
-                                                                                                                                                                                                                        
-  依赖提示                                                                                                                                                                                                              
-                                                                                                                                                                                                                        
-  - HF 路线需要 langchain-huggingface（以及 sentence-transformers，你之前微调用到）                                                                                                                                     
-  - 如果想把这些补到 requirements.txt，告诉我我来加
-                                                                                                                                                                                                                        
-  下一步建议                                                                                                                                                                                                            
-                                                                                                                                                                                                                        
-  1. 用 --embedding-backend hf 跑一次构库，确认向量库生成正常                                                                                                                                                           
-  2. 如需我把默认模型/参数写进 config.py 或 README，我可以补上     
-"""
